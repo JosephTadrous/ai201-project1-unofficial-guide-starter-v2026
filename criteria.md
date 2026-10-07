@@ -57,6 +57,8 @@ in at least 4 of 5 tries.
 
 ## 4. Something about your chunks
 
+At least 4 of 5 sampled chunks read as a complete thought, with no
+sentence cut in half at either end.
 <!-- YOU WRITE THIS ONE.
 
      How would you know if your chunks were the right size? Name something
@@ -79,6 +81,7 @@ in at least 4 of 5 tries.
 
 ## 5. Your choice
 
+Every answer comes back in under 15 seconds
 <!-- YOU WRITE THIS ONE TOO.
 
      Pick something you actually care about getting right. It could be about
