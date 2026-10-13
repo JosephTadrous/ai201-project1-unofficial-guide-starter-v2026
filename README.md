@@ -21,16 +21,23 @@
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
+The Unofficial Guide is a question-answering system over a set of fourteen short regional travel guides. Ten of them cover individual towns, such as Marchwood, Brightwater and Elder Ness. Four cover region-wide topics: eating, walking, seasons, and transport and accessibility. You ask a plain-English question, such as “How do I get from the airport to Marchwood?”. The system finds the most relevant passages in the guides and uses them to write an answer that names the source document. If a question isn’t covered by the guides, a relevance gate stops it and the system replies “I don’t have enough information about that” instead of guessing.
 
-     Milestone 5. -->
+It is a retrieval-augmented pipeline with five stages: load the documents, split them into chunks, embed the chunks into a vector store, retrieve the nearest chunks for a question, and generate an answer from them.
 
 ## Chunking Strategy
 
-**Chunk size:**
+**Chunk size: 93 chuncks; 320 characters on average**
 **Overlap:**
+
+Chunking is done by `chunker.py::split_documents`. It splits on the guides' own structure instead of a fixed character count.
+
+- **One chunk per section.** Every guide uses the same `##` headings (Getting there, Eat and drink, When to go, and so on). Each section is a self-contained topic of about 40–80 words. This matches the questions people ask, so one chunk usually holds a whole answer.
+- **Context prefix.** Each chunk begins with `Document title - Section heading`, for example `Marchwood - Getting there`. Without it, a chunk would not say which city it was about, because the city name appears only in the document's title line. All ten town guides have a "Getting there" section, so their chunks would be hard to tell apart.
+- **Intro kept separate.** The paragraph under the `# Title` line becomes its own chunk, since it answers "what is this place?" questions.
+- **Size limits as a backstop.** Sections over 1000 characters are split on paragraph and then sentence boundaries, so no sentence is cut in half. Sections under 150 characters are merged into a neighbour so no chunk is just a heading. With this corpus neither rule has fired so far, because every section already falls between those limits.
+
+**Why not fixed-size windows?** The starter's `fallback_split` cuts every 800 characters with 120 of overlap. It ignores section boundaries, so it cuts sentences in half and mixes unrelated topics in one chunk. It produced 51 chunks. The heading-based approach produces 93 chunks averaging 320 characters (187 to 882), and each one is a complete, labelled thought.
 
 <!-- What about YOUR documents made you pick these numbers? Short posts and
      long sectioned guides don't want the same chunking, and "800 seemed
