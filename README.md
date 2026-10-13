@@ -111,14 +111,19 @@ a minor injuries unit locally with limited hours.
 <!-- One complete question and answer, pasted as text, with the source line
      visible. Milestone 4. -->
 
-**Question:**
+**Question: Does the Kestrelford train service run on the weekends?**
 
 **Answer:**
 
 ```
+No, the Kestrelford railway station and line closed in 1963, so there is no train service at all. 
+
+Source: `guide_kestrelford.md`
+
+Sources retrieved: guide_eating.md, guide_kestrelford.md, guide_regional_transport.md
 ```
 
-**My relevance cutoff:**
+**My relevance cutoff: 0.6**
 
 <!-- The number you set in config.py, and how you got there.
 
