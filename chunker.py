@@ -22,6 +22,7 @@ to it, write down what you saw, and move on. That's a real observation about
 your pipeline, not giving up.
 """
 
+import re
 from dataclasses import dataclass
 
 import config
@@ -80,24 +81,103 @@ def fallback_split(
     return chunks
 
 
+MAX_CHUNK_CHARS = 1000   # sections longer than this get split on paragraphs
+MIN_CHUNK_CHARS = 150    # sections shorter than this merge into a neighbour
+
+
+def _sections(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """Return (title, [(heading, body)]). The intro under '# Title' has heading ''."""
+    title = ""
+    sections: list[tuple[str, str]] = []
+    heading, body = "", []
+
+    def flush():
+        joined = "\n".join(body).strip()
+        if joined:
+            sections.append((heading, joined))
+
+    for line in text.split("\n"):
+        if line.startswith("## "):
+            flush()
+            heading, body = line[3:].strip(), []
+        elif line.startswith("# ") and not title:
+            title = line[2:].strip()
+        else:
+            body.append(line)
+    flush()
+    return title, sections
+
+
+def _split_long(body: str) -> list[str]:
+    """Split an oversized body on paragraph breaks, falling back to sentence ends."""
+    units: list[str] = []
+    for para in re.split(r"\n\s*\n", body):
+        para = para.strip()
+        if len(para) <= MAX_CHUNK_CHARS:
+            units.append(para)
+        else:
+            units.extend(re.split(r"(?<=[.!?])\s+", para))
+
+    pieces: list[str] = []
+    current = ""
+    for unit in units:
+        if current and len(current) + len(unit) + 1 > MAX_CHUNK_CHARS:
+            pieces.append(current)
+            current = unit
+        else:
+            current = f"{current}\n{unit}".strip()
+    if current:
+        pieces.append(current)
+    return pieces
+
+
 def split_documents(documents: list[Document]) -> list[Chunk]:
     """
-    Split documents into chunks. ⚠️ REPLACE THE BODY OF THIS IN MILESTONE 3.
+    Split each document on its '##' headings, one chunk per section.
 
-    Right now it just calls the fallback. That is the plain, generic behaviour
-    the brief is talking about.
-
-    When you write your own strategy, set `produced_by` to
-    "chunker.py::split_documents" so your README's Sample Chunks section names
-    the right function. `app.py chunks` prints that string for you.
-
-    Things worth thinking about before you write any code:
-      - Are your documents short posts or long guides?
-      - Is the useful information in one sentence, or spread over a paragraph?
-      - Would splitting on paragraph breaks keep more thoughts intact than
-        splitting on a character count?
+    Every chunk is prefixed with "<Document title> - <section heading>" so a
+    chunk like "Getting there" still says which city it is about. Sections over
+    MAX_CHUNK_CHARS are split on paragraph (then sentence) boundaries, and
+    sections under MIN_CHUNK_CHARS are merged into a neighbour. The intro
+    paragraph under the '# Title' line is its own chunk.
     """
-    return fallback_split(documents)
+    chunks: list[Chunk] = []
+    for doc in documents:
+        title, sections = _sections(doc.text)
+        title = title or doc.source.rsplit(".", 1)[0]
+
+        merged: list[list[str]] = []
+        pending: list[str] | None = None   # short leading section waiting for a next one
+        for heading, body in sections:
+            if pending is not None:
+                ph, pb = pending
+                body = f"{ph}: {pb}\n\n{body}" if ph else f"{pb}\n\n{body}"
+                pending = None
+            if len(body) < MIN_CHUNK_CHARS:
+                if merged:
+                    merged[-1][1] += f"\n\n{heading}: {body}" if heading else f"\n\n{body}"
+                else:
+                    pending = [heading, body]
+                continue
+            merged.append([heading, body])
+        if pending is not None:
+            merged.append(pending)
+
+        index = 0
+        for heading, body in merged:
+            label = f"{title} - {heading}" if heading else title
+            pieces = _split_long(body) if len(body) > MAX_CHUNK_CHARS else [body]
+            for piece in pieces:
+                chunks.append(
+                    Chunk(
+                        text=f"{label}\n{piece}",
+                        source=doc.source,
+                        index=index,
+                        produced_by="chunker.py::split_documents",
+                    )
+                )
+                index += 1
+    return chunks
 
 
 def describe(chunks: list[Chunk]) -> str:
